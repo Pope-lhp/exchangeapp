@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"exchangeapp/global"
 	"exchangeapp/models"
 	"exchangeapp/utils"
 	"net/http"
@@ -20,4 +21,20 @@ func Register(ctx *gin.Context) {
 		return
 	}
 	user.Password = hashedPwd
+
+	token, err := utils.GenerateJWT(user.Username)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if err := global.Db.AutoMigrate(&user); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return //自动创建不存在的表，防止找不到对应的表导致数据库崩溃
+	}
+	if err := global.Db.Create(&user).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return //Create()：GORM 框架提供的新增数据方法，作用是将传入的结构体数据插入到对应的数据库表中
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"token": token}) //将生成的jwt令牌返回给前端
 }
